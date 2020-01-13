@@ -12,6 +12,7 @@ import android.support.annotation.RequiresApi;
 import android.util.Log;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import org.apache.cordova.ConfigXmlParser;
 import org.apache.cordova.CordovaInterface;
@@ -68,11 +69,6 @@ public class IonicWebViewEngine extends SystemWebViewEngine {
 
     super.init(parentWebView, cordova, client, resourceApi, pluginManager, nativeToJsMessageQueue);
     
-    if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      final WebSettings settings = webView.getSettings();
-      int mode = preferences.getInteger("MixedContentMode", 0);
-      settings.setMixedContentMode(mode);
-    }
 
     SharedPreferences prefs = cordova.getActivity().getApplicationContext().getSharedPreferences(IonicWebView.WEBVIEW_PREFS_NAME, Activity.MODE_PRIVATE);
     String path = prefs.getString(IonicWebView.CDV_SERVER_PATH, null);
@@ -128,6 +124,32 @@ public class IonicWebViewEngine extends SystemWebViewEngine {
     @Override
     public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
       return localServer.shouldInterceptRequest(Uri.parse(url), null);
+    }
+
+    @RequiresApi(Build.VERSION_CODES.N)
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+      if (!isLocalServerUrl(request.getUrl())) {
+        return super.shouldOverrideUrlLoading(view, request);
+      }
+
+      view.loadUrl(request.getUrl().toString());
+      return true;
+    }
+
+    @TargetApi(Build.VERSION_CODES.KITKAT)
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+      if (!isLocalServerUrl(Uri.parse(url))) {
+        return super.shouldOverrideUrlLoading(view, url);
+      }
+
+      view.loadUrl(url);
+      return true;
+    }
+
+    private boolean isLocalServerUrl(Uri url) {
+      return url.getHost().equals("localhost") && Integer.toString(url.getPort()).equals(preferences.getString("WKPort", "8080"));
     }
 
     @Override
